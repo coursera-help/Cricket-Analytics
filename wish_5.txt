@@ -1,0 +1,90 @@
+@ashish Please check with logistic Model
+
+glm.fits_final = glm(AHD ~ Sex + ChestPain + Ca + RestBP, family = binomial (link = logit), data = train_data)
+
+heart_data <- read.csv("heart-statlog.csv", stringsAsFactors = FALSE,header = TRUE)
+View(heart_data)
+dim(heart_data)
+#thalac-Max__heart and old peak no
+str(heart_data)
+summary(heart_data)
+
+heart_data$CP=as.factor(heart_data$CP)
+heart_data$Thal=as.factor(heart_data$Thal)
+
+heart_data$Num=as.factor(heart_data$Num)
+str(heart_data)
+
+#Detect NAs
+detectNAs<-function(x){
+  return(sum(is.na(x)))
+}
+sapply(heart_data, detectNAs)
+
+library(ggplot2)
+par(mfrow=c(3,3))
+boxplot_Age <- boxplot(heart_data$Age, xlab = "Age", outcol="red")
+boxplot_Trestbps <- boxplot(heart_data$Trestbps, xlab = "RestBP", outcol="red")
+boxplot_Chol <- boxplot(heart_data$Chol, xlab = "Chol", outcol="red")
+boxplot_Fbs <- boxplot(heart_data$Fbs, xlab = "Fbs", outcol="red")
+boxplot_Exang<- boxplot(heart_data$Exang, xlab = "ExAng", outcol="red")
+boxplot_Thalac <- boxplot(heart_data$Thalac, xlab = "MaxHR", outcol="red")
+boxplot_Ca <- boxplot(heart_data$Ca, xlab = "Ca", outcol="red")
+boxplot_Age$out
+boxplot_Trestbps$out
+dim(heart_data)
+pairs(heart_data)
+
+train_data <-  heart_data[1:698,]
+test_data <- heart_data[698:872,]
+head(train_data)
+head(test_data)
+cor(heart_data [,c(-3,-12,-13)])
+attach(heart_data)
+
+Train_model=glm(formula = Num ~ Age + Sex + CP + Trestbps + Chol + Fbs + 
+Restecg + Thalac + Exang + Slope + Ca+Thal, family = binomial, 
+data = train_data)
+
+
+summary(Train_model)
+##Siginificant VaribaLE Under 95% confidence interval
+## Sex Trestbps Thalac Slope Ca Thal
+
+#model with Significant var
+Train_model_with_sig=glm(formula = Num ~ Sex +  Trestbps+ 
+                  Thalac +  Slope + Ca+Thal, family = binomial, 
+                data = train_data)
+summary(Train_model_with_sig)
+
+#Deciding Cutoff
+glm.probs=predict(Train_model_with_sig, test_data, type = "response")
+range_glm.probs=range(glm.probs)
+final_cutoff= (0.88653973-0.04152589)/2
+
+#Prediction
+glm_predict_test <- ifelse (glm.probs > .44, 1, 0)
+tbl_glm_final <- table(test_data$Num,glm_predict_test)
+
+#Classification accuracy=(TP+TN)/(TP+FP+TN+FN)#
+
+glm_final_accuracy <- sum(diag(tbl_glm_final)) / nrow(test_data)
+
+#Sensitivity=TP/(TP+FN)#
+glm_final_sensitivity <-38/(38+40)
+
+#Specificity=TN/(TN+FP)#
+glm_final_specificity<- 60/(60+37)
+library(caret)
+confusionMatrix(tbl_glm_final)
+glm_models_summary <- matrix(c(glm_final_accuracy,glm_final_sensitivity,glm_final_specificity),ncol=3,byrow=TRUE)
+colnames(glm_models_summary) <- c("Accuacy","Sensitivity", "Specificty")
+rownames(glm_models_summary) <- c("Final glm Model - logit Link")
+glm_models_summary<- as.table(glm_models_summary)
+
+library(pROC)
+
+ROC_logit <- roc(test_data$Num, glm.probs)
+
+plot(ROC_logit, col = 'blue')
+
